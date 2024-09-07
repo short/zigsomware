@@ -41,9 +41,9 @@ cd zigsomware
 And build the project with specified options:
 
 ```sh
-# -Dhost: Server address
-# -Dport: Server port
-# -Dpath: the url path of the server to download a encryption key.
+# -DSERVER_HOST: Server address
+# -DSERVER_PORT: Server port
+# -DSERVER_PATH: the url path of the server to download a encryption key.
 zig build -DSERVER_HOST=127.0.0.1 -DSERVER_PORT=4444 -DSERVER_PATH=/
 ```
 
