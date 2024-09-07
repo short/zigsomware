@@ -98,5 +98,5 @@ To decrypt the files, run `zigsomware` with `-d` flag and set a **Base64-encoded
 ```sh
 # -d: Decrypt
 # -k: Base64-encoded encryption key
-./zigsomware -d -k cncV+3zy9LUXPssav7SvivRAO1kPopVXRGtk+/eW/nY= /tmp/test_dir/
+./zigsomware -d -k cncV+3zy9LUXPssav7SvivRAO1kPopVXRGtk+/eW/nY= ./test_dir/
 ```
