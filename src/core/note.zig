@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const NOTE_TEMPLATE =
-    \\
     \\🦖 YOUR FILES HAVE BEEN ENCRYPTED ! 🦖
     \\=======================================
     \\
@@ -10,7 +9,6 @@ const NOTE_TEMPLATE =
     \\{s}
     \\
     \\Your ID: {d}
-    \\
     \\
 ;
 
